@@ -95,18 +95,14 @@ EOT
             raise ArgumentError,
                   "Can not use both the 'pattern' and 'patterns' attributes " +
                   "at the same time." unless resource[:patterns].nil?
-            pats = val.is_a?( Array ) ? val : [ val ]
-            re = nil
+
             begin
-                re = Regexp.new( pats.shift(), Regexp::EXTENDED )
-                re = re.union( pats ) unless pats.empty?
+                return Regexp.union(Array(val).map { |r|
+                    Regexp.new(r, Regexp::EXTENDED) unless r.empty?
+                })
             rescue => details
-                re = nil # make sure its nil
+                raise ArgumentError, 'Could not compile one of the pattern regexps:' + details.pretty_inspect()
             end
-            raise ArgumentError,
-                  "Could not compile one of the followine regexps: " +
-                  pats.pretty_inspect() if re.nil?
-            return re
         end
     end
 
@@ -120,8 +116,6 @@ EOT
             value == :true ? false : true
         end
     end
-
-
 end
 
 # vi: set ts=4 sw=4 et :
