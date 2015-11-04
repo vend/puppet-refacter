@@ -10,6 +10,13 @@ END
     require 'set'
     require 'pp'
 
+
+    def initialize(hash)
+        debug "init refacter, save Facter values"
+        @facts = Facter.to_hash
+        super
+    end
+
     # actually perform the check and (optional) reload
     def run
         Puppet.debug("reloading facter to see if facts changed")
@@ -26,21 +33,19 @@ END
         end
         @refreshed = true
         Puppet.alert("reloading puppet to pick up new facts")
-        Puppet::Application.restart!
         pconf.run
+        Puppet::Application.stop!
         Puppet.alert("finished reloading puppet to pick up new facts")
     end
 
     def reload_facts( pattern, pconf, pnode )
-        old = get_matching_facts( pattern, pnode )
-        pconf.reload_facter()
-        new = get_matching_facts( pattern, pnode )
+        old = get_matching_facts( @facts, pattern, pnode )
+        new = get_matching_facts( refreshed_facts, pattern, pnode )
         diff = diff_hashes( old, new ) 
         return diff
     end
 
-    def get_matching_facts( pattern, pnode )
-        fact_hash = Puppet::Node::Facts.find( pnode ).values()
+    def get_matching_facts( fact_hash, pattern, pnode )
         clean_facts = fact_hash.reject { |k,v| ( ! k.is_a?( String ) ) or k[0..0] == "_" }
         matched_facts = pattern ? clean_facts.reject { |k,v| ! pattern.match(k) } : clean_facts
         return matched_facts
@@ -59,6 +64,15 @@ END
         end
         #pp h1, h2, diff_hash
         return diff_hash
+    end
+
+    def loaded_facts(pnode)
+      Puppet::Node::Facts.indirection.find( pnode ).values()
+    end
+
+    def refreshed_facts
+      Facter.clear
+      Facter.to_hash
     end
 end
 
